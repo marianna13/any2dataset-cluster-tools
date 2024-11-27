@@ -2,10 +2,11 @@
 Tools to manage any2dataset Ray (or Spark) base cluster for downloading large number of media files in distributed manner.
 
 ## Table of contents
-[Definitions](#definitions)
-[Environment variables](#environment-variables)
-[Guide for Starting a cluster](#starting-a-cluster)
-[Managing the cluster](#managing-the-cluster)
+- [Definitions](#definitions)
+- [Installation](#installation)
+- [Environment variables](#environment-variables)
+- [Guide for Starting a cluster](#starting-a-cluster)
+- [Managing the cluster](#managing-the-cluster)
 
 
 ## Definitions
@@ -18,6 +19,12 @@ Tools to manage any2dataset Ray (or Spark) base cluster for downloading large nu
 - **Cluster worker:** a machine that perfoms the task (in out case downloading).
 - **Cluster dashboard:** web-based interface that allows cluster mointoring. In Ray case it's should be located http://<master_ip>:8265/. 
 - **Setup script:** this is a bash script that should be run on cluster machines that sets everything up - installs all requirements, mounts storage directories etc. See [this file](scripts/ray_audio.sh).
+
+## Installation
+Install the requirements:
+```bash
+pip install -r requirements.txt
+```
 
 ## Environment variables
 
