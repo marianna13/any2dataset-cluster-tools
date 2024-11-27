@@ -1,0 +1,6 @@
+paramiko
+scp
+requests
+BeautifulSoup4
+pandas
+ruff

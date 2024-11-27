@@ -34,8 +34,9 @@ import os.path
 from contextlib import contextmanager
 from multiprocessing import get_context
 from itertools import islice, chain
+
 try:
-    from pyspark.sql import SparkSession 
+    from pyspark.sql import SparkSession
 except ImportError:
     pass
 import glob
@@ -45,6 +46,7 @@ import argparse
 from tqdm import tqdm
 import logging
 import functools
+
 # import ray
 # import memray
 LOG_FORMAT = "[P%(process)s/%(name)s] %(levelname)s: %(message)s"
@@ -52,11 +54,7 @@ key = "af3a0825037ea837b5f6a13d06c4cb626f3914d4"
 wandb.login(key=key)
 
 
-def ensure_executor_logging(
-        f=None, *,
-        level=logging.INFO,
-        format=LOG_FORMAT
-):
+def ensure_executor_logging(f=None, *, level=logging.INFO, format=LOG_FORMAT):
     """
     Decorator to enable standard Python logging from functions that are used in PySpark executors.
     The PySpark workers are forked processes without any Python logging setup.
@@ -86,6 +84,7 @@ def ensure_executor_logging(
     # Was decorator used without parenthesis or parameterized?
     return decorator(f) if callable(f) else decorator
 
+
 _INTER_STR_TO_CV2 = {
     "nearest": cv2.INTER_NEAREST,
     "linear": cv2.INTER_LINEAR,
@@ -97,6 +96,7 @@ _INTER_STR_TO_CV2 = {
     "lanczos4": cv2.INTER_LANCZOS4,
 }
 
+
 def spark_session(master_node, num_cores=16, mem_gb=256):
     """Build a spark session"""
 
@@ -106,7 +106,7 @@ def spark_session(master_node, num_cores=16, mem_gb=256):
         .config("spark.driver.port", "5678")
         .config("spark.executor.cores", "4")
         .config("spark.task.cpus", "1")
-        .config("spark.default.parallelism", str(int(num_cores))) 
+        .config("spark.default.parallelism", str(int(num_cores)))
         # .config("spark.python.worker.reuse", "false")
         # .config("spark.executor.logs.rolling.maxRetainedFiles", "5")
         # .config("spark.executor.logs.rolling.strategy", "size")
@@ -119,11 +119,13 @@ def spark_session(master_node, num_cores=16, mem_gb=256):
         # .config("spark.driver.blockManager.port", "6678")
         .config("spark.driver.host", master_node)
         .config("spark.driver.bindAddress", master_node)
-        .config("spark.executor.memory", "4G") # make sure to increase this if you're using more cores per executor
+        .config(
+            "spark.executor.memory", "4G"
+        )  # make sure to increase this if you're using more cores per executor
         .config("spark.driver.memory", "1G")
         # .config("spark.driver.cores", "1")
         # .config("spark.executor.memoryOverhead", "1G")
-        # .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") 
+        # .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
         # .config("spark.memory.fraction", "0.6")
         # .config("spark.executor.instances", "2")
         # .config("spark.dynamicAllocation.initialExecutors", "80")
@@ -136,12 +138,15 @@ def spark_session(master_node, num_cores=16, mem_gb=256):
 
     return spark
 
+
 def retrier(runf, failed_shards, max_shard_retry):
     # retry failed shards max_shard_retry times
     for i in range(max_shard_retry):
         if len(failed_shards) == 0:
             break
-        logging.getLogger("retrier").info(f"Retrying {len(failed_shards)} shards, try {i+1}")
+        logging.getLogger("retrier").info(
+            f"Retrying {len(failed_shards)} shards, try {i+1}"
+        )
         failed_shards = runf(failed_shards)
     if len(failed_shards) != 0:
         logging.getLogger("retrier").info(
@@ -150,7 +155,9 @@ def retrier(runf, failed_shards, max_shard_retry):
         )
 
 
-def multiprocessing_distributor(processes_count, downloader, reader, _, max_shard_retry):
+def multiprocessing_distributor(
+    processes_count, downloader, reader, _, max_shard_retry
+):
     """Distribute the work to the processes using multiprocessing"""
     ctx = get_context("spawn")
     with ctx.Pool(processes_count, maxtasksperchild=5) as process_pool:
@@ -170,13 +177,16 @@ def multiprocessing_distributor(processes_count, downloader, reader, _, max_shar
         process_pool.join()
         del process_pool
 
+
 def process_row(row, failed_shards):
     status, row = row
     if status is False:
         failed_shards.append(row)
 
+
 try:
     import ray
+
     # import memray
     @ray.remote(num_cpus=2)
     def ray_download(downloader, shards):
@@ -187,14 +197,12 @@ try:
         # pylint: disable=unused-argument
         ret = []
         count = 0
-        
+
         # ray.get([ray_download.remote(downloader, task) for task in reader])
 
-
-        
         for task in reader:
             # print(f"Task: {task}")
-        #     count += 1
+            #     count += 1
             ret.append(ray_download.remote(downloader, task))
         ray.get(ret)
 
@@ -205,7 +213,10 @@ try:
 except ImportError:
     pass
 
-def pyspark_distributor(processes_count, downloader, reader, subjob_size, max_shard_retry):
+
+def pyspark_distributor(
+    processes_count, downloader, reader, subjob_size, max_shard_retry
+):
     """Distribute the work to the processes using pyspark"""
 
     with _spark_session(processes_count) as spark:
@@ -236,7 +247,6 @@ def pyspark_distributor(processes_count, downloader, reader, subjob_size, max_sh
         failed_shards = run(reader)
 
         retrier(run, failed_shards, max_shard_retry)
-
 
 
 @contextmanager
@@ -397,7 +407,11 @@ class Resizer:
             with SuppressStdoutStderr():
                 cv2.setNumThreads(1)
                 img_stream.seek(0)
-                encode_needed = imghdr.what(img_stream) != self.what_ext if self.skip_reencode else True
+                encode_needed = (
+                    imghdr.what(img_stream) != self.what_ext
+                    if self.skip_reencode
+                    else True
+                )
                 img_stream.seek(0)
                 img_buf = np.frombuffer(img_stream.read(), np.uint8)
                 img = cv2.imdecode(img_buf, cv2.IMREAD_UNCHANGED)
@@ -417,7 +431,11 @@ class Resizer:
                 if original_height * original_width > self.max_image_area:
                     return None, None, None, None, None, "image area too large"
                 # check if wrong aspect ratio
-                if max(original_height, original_width) / min(original_height, original_width) > self.max_aspect_ratio:
+                if (
+                    max(original_height, original_width)
+                    / min(original_height, original_width)
+                    > self.max_aspect_ratio
+                ):
                     return None, None, None, None, None, "aspect ratio too large"
 
                 # check if resizer was defined during init if needed
@@ -431,19 +449,34 @@ class Resizer:
                 if self.resize_mode in (ResizeMode.keep_ratio, ResizeMode.center_crop):
                     downscale = min(original_width, original_height) > self.image_size
                     if not self.resize_only_if_bigger or downscale:
-                        interpolation = self.downscale_interpolation if downscale else self.upscale_interpolation
-                        img = A.smallest_max_size(img, self.image_size, interpolation=interpolation)
+                        interpolation = (
+                            self.downscale_interpolation
+                            if downscale
+                            else self.upscale_interpolation
+                        )
+                        img = A.smallest_max_size(
+                            img, self.image_size, interpolation=interpolation
+                        )
                         if blurring_bbox_list is not None and self.blurrer is not None:
                             img = self.blurrer(img=img, bbox_list=blurring_bbox_list)
                         if self.resize_mode == ResizeMode.center_crop:
                             img = A.center_crop(img, self.image_size, self.image_size)
                         encode_needed = True
                         maybe_blur_still_needed = False
-                elif self.resize_mode in (ResizeMode.border, ResizeMode.keep_ratio_largest):
+                elif self.resize_mode in (
+                    ResizeMode.border,
+                    ResizeMode.keep_ratio_largest,
+                ):
                     downscale = max(original_width, original_height) > self.image_size
                     if not self.resize_only_if_bigger or downscale:
-                        interpolation = self.downscale_interpolation if downscale else self.upscale_interpolation
-                        img = A.longest_max_size(img, self.image_size, interpolation=interpolation)
+                        interpolation = (
+                            self.downscale_interpolation
+                            if downscale
+                            else self.upscale_interpolation
+                        )
+                        img = A.longest_max_size(
+                            img, self.image_size, interpolation=interpolation
+                        )
                         if blurring_bbox_list is not None and self.blurrer is not None:
                             img = self.blurrer(img=img, bbox_list=blurring_bbox_list)
                         if self.resize_mode == ResizeMode.border:
@@ -458,19 +491,24 @@ class Resizer:
                         maybe_blur_still_needed = False
 
                 # blur parts of the image if needed
-                if maybe_blur_still_needed and blurring_bbox_list is not None and self.blurrer is not None:
+                if (
+                    maybe_blur_still_needed
+                    and blurring_bbox_list is not None
+                    and self.blurrer is not None
+                ):
                     img = self.blurrer(img=img, bbox_list=blurring_bbox_list)
 
                 height, width = img.shape[:2]
                 if encode_needed:
-                    img_str = cv2.imencode(f".{self.encode_format}", img, params=self.encode_params)[1].tobytes()
+                    img_str = cv2.imencode(
+                        f".{self.encode_format}", img, params=self.encode_params
+                    )[1].tobytes()
                 else:
                     img_str = img_buf.tobytes()
                 return img_str, width, height, original_width, original_height, None
 
         except Exception as err:  # pylint: disable=broad-except
             return None, None, None, None, None, str(err)
-
 
 
 class BufferedParquetWriter:
@@ -575,7 +613,9 @@ class WebDatasetSampleWriter:
         self.tar_fd = fs.open(f"{output_path}/{shard_name}.tar", "wb")
         self.tarwriter = wds.TarWriter(self.tar_fd)
         self.save_caption = save_caption
-        self.buffered_parquet_writer = BufferedParquetWriter(output_folder + "/" + shard_name + ".parquet", schema, 100)
+        self.buffered_parquet_writer = BufferedParquetWriter(
+            output_folder + "/" + shard_name + ".parquet", schema, 100
+        )
         self.encode_format = encode_format
 
     def write(self, img_str, key, caption, meta):
@@ -642,7 +682,9 @@ class TFRecordSampleWriter:
         self.shard_id = shard_id
         self.tf_writer = TFRecordWriter(f"{output_folder}/{shard_name}.tfrecord")
         self.save_caption = save_caption
-        self.buffered_parquet_writer = BufferedParquetWriter(output_folder + "/" + shard_name + ".parquet", schema, 100)
+        self.buffered_parquet_writer = BufferedParquetWriter(
+            output_folder + "/" + shard_name + ".parquet", schema, 100
+        )
         self.encode_format = encode_format
 
     def write(self, img_str, key, caption, meta):
@@ -653,7 +695,9 @@ class TFRecordSampleWriter:
                 self.encode_format: self._bytes_feature(img_str),
             }
             if self.save_caption:
-                sample["txt"] = self._bytes_feature(str(caption) if caption is not None else "")
+                sample["txt"] = self._bytes_feature(
+                    str(caption) if caption is not None else ""
+                )
             for k, v in meta.items():
                 sample[k] = self._feature(v)
             tf_example = self._Example(features=self._Features(feature=sample))
@@ -727,7 +771,9 @@ class FilesSampleWriter:
         if not self.fs.exists(self.subfolder):
             self.fs.mkdir(self.subfolder)
         self.save_caption = save_caption
-        self.buffered_parquet_writer = BufferedParquetWriter(output_folder + "/" + shard_name + ".parquet", schema, 100)
+        self.buffered_parquet_writer = BufferedParquetWriter(
+            output_folder + "/" + shard_name + ".parquet", schema, 100
+        )
         self.encode_format = encode_format
 
     def write(self, img_str, key, caption, meta):
@@ -754,8 +800,6 @@ class FilesSampleWriter:
 
     def close(self):
         self.buffered_parquet_writer.close()
-
-
 
 
 class Reader:
@@ -806,16 +850,34 @@ class Reader:
         self.start_file_id = start_file_id
 
         if fs.isdir(url_path):
-            self.input_files = sorted(fs.glob(url_path.rstrip("/") + "/*." + input_format))
+            self.input_files = sorted(
+                fs.glob(url_path.rstrip("/") + "/*." + input_format)
+            )
             if len(self.input_files) == 0:
-                raise ValueError(f"No file found at path {url_path} with extension {input_format}")
+                raise ValueError(
+                    f"No file found at path {url_path} with extension {input_format}"
+                )
         else:
             self.input_files = [url_path]
 
         if self.input_format in ["txt", "txt.gz"]:
             self.column_list = ["url"]
-        elif self.input_format in ["json", "json.gz", "jsonl", "jsonl.gz", "csv", "csv.gz", "tsv", "tsv.gz", "parquet"]:
-            self.column_list = self.save_additional_columns if self.save_additional_columns is not None else []
+        elif self.input_format in [
+            "json",
+            "json.gz",
+            "jsonl",
+            "jsonl.gz",
+            "csv",
+            "csv.gz",
+            "tsv",
+            "tsv.gz",
+            "parquet",
+        ]:
+            self.column_list = (
+                self.save_additional_columns
+                if self.save_additional_columns is not None
+                else []
+            )
             if self.caption_col is not None:
                 self.column_list = self.column_list + ["caption"]
             self.column_list = self.column_list + ["url"]
@@ -839,15 +901,21 @@ class Reader:
             compression = None
             if self.input_format.endswith(".gz"):
                 compression = "gzip"
-            with self.fs.open(input_file, encoding="utf-8", mode="rb", compression=compression) as file:
+            with self.fs.open(
+                input_file, encoding="utf-8", mode="rb", compression=compression
+            ) as file:
                 if self.input_format in ["txt", "txt.gz"]:
-                    df = csv_pa.read_csv(file, read_options=csv_pa.ReadOptions(column_names=["url"]))
+                    df = csv_pa.read_csv(
+                        file, read_options=csv_pa.ReadOptions(column_names=["url"])
+                    )
                 elif self.input_format in ["json", "json.gz"]:
                     df = pa.Table.from_pandas(pd.read_json(file))
                 elif self.input_format in ["csv", "csv.gz"]:
                     df = csv_pa.read_csv(file)
                 elif self.input_format in ["tsv", "tsv.gz"]:
-                    df = csv_pa.read_csv(file, parse_options=csv_pa.ParseOptions(delimiter="\t"))
+                    df = csv_pa.read_csv(
+                        file, parse_options=csv_pa.ParseOptions(delimiter="\t")
+                    )
                 elif self.input_format in ["jsonl", "jsonl.gz"]:
                     df = json_pa.read_json(file)
                 else:
@@ -865,7 +933,9 @@ class Reader:
 
         column_names = df.column_names
         if self.caption_col is not None:
-            column_names = [c if c != self.caption_col else "caption" for c in column_names]
+            column_names = [
+                c if c != self.caption_col else "caption" for c in column_names
+            ]
 
         column_names = [c if c != self.url_col else "url" for c in column_names]
 
@@ -885,8 +955,12 @@ class Reader:
         def write_shard(t):
             full_shard_id, shard_id = t
             begin_shard = shard_id * self.number_sample_per_shard
-            end_shard = min(number_samples, (1 + shard_id) * self.number_sample_per_shard)
-            df_shard = df.slice(begin_shard, end_shard - begin_shard).select(self.column_list)
+            end_shard = min(
+                number_samples, (1 + shard_id) * self.number_sample_per_shard
+            )
+            df_shard = df.slice(begin_shard, end_shard - begin_shard).select(
+                self.column_list
+            )
             tmp_file = self.tmp_path + f"/{full_shard_id}.feather"
             for i in range(10):
                 try:
@@ -910,7 +984,9 @@ class Reader:
             # thread pool to make it faster to write files to low latency file systems (ie s3, hdfs)
             try:
                 with ThreadPool(24) as thread_pool:
-                    for shard in thread_pool.imap_unordered(write_shard, shards_to_write):
+                    for shard in thread_pool.imap_unordered(
+                        write_shard, shards_to_write
+                    ):
                         shards.append(shard)
                 break
             except Exception as e:  # pylint: disable=broad-except
@@ -923,7 +999,6 @@ class Reader:
         del df
         shards.sort(key=lambda k: k[0])
 
-        
         del shards_to_write
 
         return shards, number_shards
@@ -940,7 +1015,14 @@ class Reader:
         for i, input_file in enumerate(self.input_files):
             if i < self.start_file_id and self.start_file_id != 0:
                 continue
-            print("Sharding file number " + str(i + 1) + " of " + str(len(self.input_files)) + " called " + input_file)
+            print(
+                "Sharding file number "
+                + str(i + 1)
+                + " of "
+                + str(len(self.input_files))
+                + " called "
+                + input_file
+            )
 
             shards, number_shards = self._save_to_arrow(input_file, start_shard_id)
             print("File sharded in " + str(len(shards)) + " shards")
@@ -955,6 +1037,7 @@ class Reader:
                     arrow_file,
                 )
             start_shard_id += number_shards
+
 
 class Logger:
     """logger which logs when number of calls reaches a value or a time interval has passed"""
@@ -1017,7 +1100,12 @@ class SpeedLogger(Logger):
         self.start_time = min(start_time, self.start_time)
         self.end_time = max(end_time, self.end_time)
         super().__call__(
-            self.count, self.success, self.failed_to_download, self.failed_to_resize, self.start_time, self.end_time
+            self.count,
+            self.success,
+            self.failed_to_download,
+            self.failed_to_resize,
+            self.start_time,
+            self.end_time,
         )
 
     def do_log(
@@ -1057,7 +1145,9 @@ class SpeedLogger(Logger):
 class StatusTableLogger(Logger):
     """Log status table to W&B, up to `max_status` most frequent items"""
 
-    def __init__(self, max_status=100, min_interval=60, enable_wandb=False, **logger_args):
+    def __init__(
+        self, max_status=100, min_interval=60, enable_wandb=False, **logger_args
+    ):
         super().__init__(min_interval=min_interval, **logger_args)
         # avoids too many errors unique to a specific website (SSL certificates, etc)
         self.max_status = max_status
@@ -1067,7 +1157,10 @@ class StatusTableLogger(Logger):
         if self.enable_wandb:
             status_table = wandb.Table(
                 columns=["status", "frequency", "count"],
-                data=[[k, 1.0 * v / count, v] for k, v in status_dict.most_common(self.max_status)],
+                data=[
+                    [k, 1.0 * v / count, v]
+                    for k, v in status_dict.most_common(self.max_status)
+                ],
             )
             wandb.run.log({"status": status_table})
 
@@ -1109,7 +1202,14 @@ def write_stats(
 class LoggerProcess(multiprocessing.context.SpawnProcess):
     """Logger process that reads stats files regularly, aggregates and send to wandb / print to terminal"""
 
-    def __init__(self, output_folder, enable_wandb, wandb_project, config_parameters, log_interval=5):
+    def __init__(
+        self,
+        output_folder,
+        enable_wandb,
+        wandb_project,
+        config_parameters,
+        log_interval=5,
+    ):
         super().__init__()
         self.log_interval = log_interval
         self.enable_wandb = enable_wandb
@@ -1124,10 +1224,16 @@ class LoggerProcess(multiprocessing.context.SpawnProcess):
     def run(self):
         """Run logger process"""
 
-        fs, output_path = fsspec.core.url_to_fs(self.output_folder, use_listings_cache=False)
+        fs, output_path = fsspec.core.url_to_fs(
+            self.output_folder, use_listings_cache=False
+        )
 
         if self.enable_wandb:
-            self.current_run = wandb.init(project=self.wandb_project, config=self.config_parameters, anonymous="allow")
+            self.current_run = wandb.init(
+                project=self.wandb_project,
+                config=self.config_parameters,
+                anonymous="allow",
+            )
         else:
             self.current_run = None
         self.total_speed_logger = SpeedLogger("total", enable_wandb=self.enable_wandb)
@@ -1149,7 +1255,11 @@ class LoggerProcess(multiprocessing.context.SpawnProcess):
                 stats_files = fs.glob(output_path + "/*.json")
 
                 # filter out files that have an id smaller that are already done
-                stats_files = [f for f in stats_files if int(f.split("/")[-1].split("_")[0]) not in self.done_shards]
+                stats_files = [
+                    f
+                    for f in stats_files
+                    if int(f.split("/")[-1].split("_")[0]) not in self.done_shards
+                ]
 
                 # get new stats files
                 new_stats_files = set(stats_files) - self.stats_files
@@ -1181,7 +1291,9 @@ class LoggerProcess(multiprocessing.context.SpawnProcess):
                             )
                             status_dict = CappedCounter.load(stats["status_dict"])
                             total_status_dict.update(status_dict)
-                            self.status_table_logger(total_status_dict, self.total_speed_logger.count)
+                            self.status_table_logger(
+                                total_status_dict, self.total_speed_logger.count
+                            )
                         except Exception as err:  # pylint: disable=broad-except
                             print(f"failed to parse stats file {stats_file}", err)
 
@@ -1250,7 +1362,9 @@ def is_disallowed(headers, user_agent_token, disallowed_header_directives):
         try:
             uatoken_directives = values.split(":", 1)
             directives = [x.strip().lower() for x in uatoken_directives[-1].split(",")]
-            ua_token = uatoken_directives[0].lower() if len(uatoken_directives) == 2 else None
+            ua_token = (
+                uatoken_directives[0].lower() if len(uatoken_directives) == 2 else None
+            )
             if (ua_token is None or ua_token == user_agent_token) and any(
                 x in disallowed_header_directives for x in directives
             ):
@@ -1261,16 +1375,22 @@ def is_disallowed(headers, user_agent_token, disallowed_header_directives):
     return False
 
 
-def download_image(row, timeout, user_agent_token, disallowed_header_directives, max_data_size=None):
+def download_image(
+    row, timeout, user_agent_token, disallowed_header_directives, max_data_size=None
+):
     """Download an image with urllib"""
     key, url = row
     img_stream = None
-    user_agent_string = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:72.0) Gecko/20100101 Firefox/72.0"
+    user_agent_string = (
+        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:72.0) Gecko/20100101 Firefox/72.0"
+    )
     if user_agent_token:
         user_agent_string += f" (compatible; {user_agent_token}; +https://github.com/rom1504/img2dataset)"
     try:
         # print(url)
-        request = urllib.request.Request(url, data=None, headers={"User-Agent": user_agent_string})
+        request = urllib.request.Request(
+            url, data=None, headers={"User-Agent": user_agent_string}
+        )
         with urllib.request.urlopen(request, timeout=timeout) as r:
             if disallowed_header_directives and is_disallowed(
                 r.headers,
@@ -1279,7 +1399,11 @@ def download_image(row, timeout, user_agent_token, disallowed_header_directives,
             ):
                 return key, None, "Use of image disallowed by X-Robots-Tag directive"
             context_length = r.getheader("Content-Length")
-            if context_length is not None and max_data_size is not None and int(context_length) > max_data_size:
+            if (
+                context_length is not None
+                and max_data_size is not None
+                and int(context_length) > max_data_size
+            ):
                 return key, None, "Image too large"
             img_stream = io.BytesIO(r.read())
         return key, img_stream, None
@@ -1289,9 +1413,18 @@ def download_image(row, timeout, user_agent_token, disallowed_header_directives,
         return key, None, str(err)
 
 
-def download_image_with_retry(row, timeout, retries, user_agent_token, disallowed_header_directives, max_data_size=None):
+def download_image_with_retry(
+    row,
+    timeout,
+    retries,
+    user_agent_token,
+    disallowed_header_directives,
+    max_data_size=None,
+):
     for _ in range(retries + 1):
-        key, img_stream, err = download_image(row, timeout, user_agent_token, disallowed_header_directives, max_data_size)
+        key, img_stream, err = download_image(
+            row, timeout, user_agent_token, disallowed_header_directives, max_data_size
+        )
         if img_stream is not None:
             return key, img_stream, err
     return key, None, err
@@ -1340,13 +1473,17 @@ class Downloader:
         self.verify_hash_type = verify_hash_type
         self.encode_format = encode_format
         self.retries = retries
-        self.user_agent_token = None if user_agent_token is None else user_agent_token.strip().lower()
+        self.user_agent_token = (
+            None if user_agent_token is None else user_agent_token.strip().lower()
+        )
         self.disallowed_header_directives = (
             None
             if disallowed_header_directives is None
-            else {directive.strip().lower() for directive in disallowed_header_directives}
+            else {
+                directive.strip().lower() for directive in disallowed_header_directives
+            }
         )
-        max_data_size = None if max_data_size is None else int(max_data_size)*1000000
+        max_data_size = None if max_data_size is None else int(max_data_size) * 1000000
         self.max_data_size = max_data_size
 
     def __call__(
@@ -1358,7 +1495,6 @@ class Downloader:
             return (True, row)
         except Exception as err:  # pylint: disable=broad-except
             return (False, row)
-        
 
     def download_shard(
         self,
@@ -1370,11 +1506,11 @@ class Downloader:
         start_time = time.time()
 
         # check if shard_file exists
-       
+
         fs, shard_path = fsspec.core.url_to_fs(shard_file)
         with open(shard_file, "rb") as f:
             df = pa.ipc.open_file(f).read_all()
-               
+
         schema = df.schema
         schema = (
             schema.append(pa.field("key", pa.string()))
@@ -1386,7 +1522,6 @@ class Downloader:
         del df
         shard_to_dl = list(enumerate(zip(*(pydict[col] for col in self.column_list))))
         del pydict
-        
 
         status_dict = CappedCounter()
 
@@ -1395,7 +1530,9 @@ class Downloader:
         failed_to_download = 0
         failed_to_resize = 0
         url_indice = self.column_list.index("url")
-        caption_indice = self.column_list.index("caption") if "caption" in self.column_list else None
+        caption_indice = (
+            self.column_list.index("caption") if "caption" in self.column_list else None
+        )
 
         key_url_list = [(key, x[url_indice]) for key, x in shard_to_dl]
 
@@ -1434,9 +1571,10 @@ class Downloader:
                 loader,
             ):
                 try:
-
                     _, sample_data = shard_to_dl[key]
-                    str_key = compute_key(key, shard_id, oom_sample_per_shard, self.oom_shard_count)
+                    str_key = compute_key(
+                        key, shard_id, oom_sample_per_shard, self.oom_shard_count
+                    )
                     meta = {
                         # Skip columns containing a the verification hash and only save the compute hash
                         **{
@@ -1456,16 +1594,17 @@ class Downloader:
                         sample_writer.write(
                             None,
                             str_key,
-                            sample_data[caption_indice] if caption_indice is not None else None,
+                            sample_data[caption_indice]
+                            if caption_indice is not None
+                            else None,
                             meta,
                         )
                         semaphore.release()
                         continue
 
-
                     img_stream.seek(0)
                     img = img_stream.read()
-                    
+
                     if error_message is not None:
                         failed_to_resize += 1
                         status = "failed_to_resize"
@@ -1475,7 +1614,9 @@ class Downloader:
                         sample_writer.write(
                             None,
                             str_key,
-                            sample_data[caption_indice] if caption_indice is not None else None,
+                            sample_data[caption_indice]
+                            if caption_indice is not None
+                            else None,
                             meta,
                         )
                         img_stream.close()
@@ -1486,7 +1627,6 @@ class Downloader:
                     status = "success"
                     status_dict.increment(status)
 
-
                     meta["status"] = status
                     img_stream.close()
                     del img_stream
@@ -1494,7 +1634,9 @@ class Downloader:
                     sample_writer.write(
                         img,
                         str_key,
-                        sample_data[caption_indice] if caption_indice is not None else None,
+                        sample_data[caption_indice]
+                        if caption_indice is not None
+                        else None,
                         meta,
                     )
                 except Exception as err:  # pylint: disable=broad-except
@@ -1625,7 +1767,9 @@ def download(
     output_folder = make_path_absolute(output_folder)
     url_list = make_path_absolute(url_list)
 
-    logger_process = LoggerProcess(output_folder, enable_wandb, wandb_project, config_parameters)
+    logger_process = LoggerProcess(
+        output_folder, enable_wandb, wandb_project, config_parameters
+    )
 
     tmp_path = output_folder + "/_tmp"
     fs, tmp_dir = fsspec.core.url_to_fs(tmp_path)
@@ -1652,13 +1796,19 @@ def download(
         done_shards = set()
     else:
         if incremental_mode == "incremental":
-            done_shards = set(int(x.split("/")[-1].split("_")[0]) for x in fs.glob(output_path + "/*.json"))
+            done_shards = set(
+                int(x.split("/")[-1].split("_")[0])
+                for x in fs.glob(output_path + "/*.json")
+            )
         elif incremental_mode == "overwrite":
             fs.rm(output_path, recursive=True)
             fs.mkdir(output_path)
             done_shards = set()
         elif incremental_mode == "extend":
-            existing_shards = [int(x.split("/")[-1].split("_")[0]) for x in fs.glob(output_path + "/*.json")]
+            existing_shards = [
+                int(x.split("/")[-1].split("_")[0])
+                for x in fs.glob(output_path + "/*.json")
+            ]
             start_shard_id = max(existing_shards, default=-1) + 1
             done_shards = set()
         else:
@@ -1707,8 +1857,6 @@ def download(
     else:
         raise ValueError(f"Invalid output format {output_format}")
 
-
-
     downloader = Downloader(
         sample_writer_class=sample_writer_class,
         thread_count=thread_count,
@@ -1753,13 +1901,13 @@ def download(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--master_node')
-    parser.add_argument('--output_dir')
-    parser.add_argument('--url_list')
-    parser.add_argument('--num_proc')
-    parser.add_argument('--caption_col')
-    parser.add_argument('--url_col')
-    parser.add_argument('--encode_format')
+    parser.add_argument("--master_node")
+    parser.add_argument("--output_dir")
+    parser.add_argument("--url_list")
+    parser.add_argument("--num_proc")
+    parser.add_argument("--caption_col")
+    parser.add_argument("--url_col")
+    parser.add_argument("--encode_format")
 
     args = parser.parse_args()
 
@@ -1772,7 +1920,6 @@ if __name__ == "__main__":
     print(output_dir)
 
     url_list = args.url_list
-
 
     try:
         spark = spark_session(master_node, processes_count, 256)
@@ -1792,18 +1939,17 @@ if __name__ == "__main__":
             enable_wandb=True,
             number_sample_per_shard=1000,
             distributor="ray",
-            compute_hash=None,  
+            compute_hash=None,
             extract_exif=False,
             disable_all_reencoding=True,
             resize_mode="no",
             wandb_project="audio_download",
             subjob_size=1000,
             encode_format=args.encode_format,
-            max_data_size=5
+            max_data_size=5,
         )
 
     except Exception as e:
         print(f"Error: {e}")
         print(traceback.format_exc())
         raise e
-    
