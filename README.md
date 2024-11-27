@@ -51,7 +51,9 @@ Steps to start the cluster:
 0,192.81.209.210
 1,65.109.9.187
 ```
+
 1. So first, we select a master node for the list of ip addresses of available machines.
+
 2. The we create two JSON files - a cluster config (see [this config](cluster_configs/ray_audio.json)) and a cluster specific file that should store information about workers and head node (see [this file](clustersr/ay_audio.json)):
 ```json
 {
@@ -65,10 +67,13 @@ Steps to start the cluster:
 }
 ```
 Clsuter id should be equal to cluster config filename. Master node should be set to the chosen master IP address and master URL should also be set accordingly.
+
 3. Set [environment variables](#environment-variables) accordingly. *Note:* you may need to set the same variables on cluster machines. You can set them by first setting them first on your machine (by modifying in running [this script](scripts/set_env.sh)) and then setting up the cluster and adding more nodes (see below).
+
 4. **Setting the cluster up.** 
 In [manage_cluster.sh](manage_cluster.sh) there's an example of setting up a cluster master node (see setup section).
 Then you need to ssh into your master node and copy all three files in the [master](/master) directory into ypur work directory on the remote machine (`cd /home/cluster/`). 
+
 5. The last steps are launching the master process (master node will run one worker process as well):
 `bash start_cluster`
 You will be able to connect to ypour cluster dashboard via opeining http://<master_ip>:8265 in yout browser.
