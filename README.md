@@ -11,7 +11,7 @@ Tools to manage any2dataset Ray (or Spark) base cluster for downloading large nu
 
 ## Definitions
 
-- **any2datset:** a minimalistic vesrion of a tool based o[img2dataset](https://github.com/rom1504/img2dataset.git) and [any2dataset](https://github.com/rom1504/any2dataset.git) that allows easily download large number of *any* media pairs (audio, video, images, docs etc). 
+- **any2datset:** a minimalistic vesrion of a tool based on [img2dataset](https://github.com/rom1504/img2dataset.git) and [any2dataset](https://github.com/rom1504/any2dataset.git) that allows easily download large number of *any* media pairs (audio, video, images, docs etc). 
 - **Storage machine:** a remote machine that can be connected via ssh that stores metadata for downloading (URL-text pairs) as well as output (downloaded files). Storage machine cannot be used for downloading, that's why we need another kinf of machine (see below).
 - **Cluster machine:** a remote machine that performs downloading.
 - **Cluster:** in this setup, it's just a set of remote VMs that perform downloading in distributed manner.
