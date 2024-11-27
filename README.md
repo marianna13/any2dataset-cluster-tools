@@ -47,7 +47,7 @@ The cluster should be starting on the master node.
 Steps to start the cluster:
 0. Create a csv file with hostnames and save it somewhere:
 ```csv
-,host,user,password,hostname,comment
+,host
 0,192.81.209.210
 1,65.109.9.187
 ```
