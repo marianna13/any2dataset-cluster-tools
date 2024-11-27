@@ -1,5 +1,12 @@
-# Any2dataset distrubuted download
+# Any2dataset distributed downloading
 Tools to manage any2dataset Ray (or Spark) base cluster for downloading large number of media files in distributed manner.
+
+## Table of contents
+[Definitions](#definitions)
+[Environment variables](#environment-variables)
+[Guide for Starting a cluster](#starting-a-cluster)
+[Managing the cluster](#managing-the-cluster)
+
 
 ## Definitions
 
@@ -27,7 +34,7 @@ MOUNT_HOST="hostanme"
 SSH_KEY="ssh key of cluster machines"
 USER="username of cluster machines"
 ```
-## Starting the cluster
+## Starting a cluster
 
 The cluster should be starting on the master node. 
 Steps to start the cluster:
@@ -62,3 +69,14 @@ Then if evrything works, run the job: `bash run_job`.
 *Note 1:* you can more worker nodes from your host list (a csv file) to your cluster by running command similar to one from [manage_cluster.sh](manage_cluster.sh) (second section), You can do either after you start ypur job or before, but always after you properly set you cluster up.
 
 *Note 2:* you should be able to see your job logs in the `/home/cluster/my.log` file.
+
+## Managing the cluster
+
+Besides adding and killing worker nodes, managing the cluster comes to managing the master node.
+We use docker containers to run the master/worker nodes to make it easier to setup everything.
+To kill the master process (and the cluster), you can do the following:
+1. Get the container ID that master process is running in and copy t:
+`docker ps`
+2. Kill the container:
+`docker kill <docker_id>`
+Then you can restart the cluster and the job by running commands from the [step 5](#starting-a-cluster).
