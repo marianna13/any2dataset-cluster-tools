@@ -78,6 +78,7 @@ Then you need to ssh into your master node and copy all three files in the [mast
 `bash start_cluster`
 You will be able to connect to ypour cluster dashboard via opeining http://<master_ip>:8265 in yout browser.
 Then if evrything works, run the job: `bash run_job`.
+
 *Note 1:* you can more worker nodes from your host list (a csv file) to your cluster by running command similar to one from [manage_cluster.sh](manage_cluster.sh) (second section), You can do either after you start ypur job or before, but always after you properly set you cluster up.
 
 *Note 2:* you should be able to see your job logs in the `/home/cluster/my.log` file.
