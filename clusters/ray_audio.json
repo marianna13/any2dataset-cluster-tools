@@ -1,0 +1,9 @@
+{
+    "cluster_id": "ray_audio",
+    "status": "running",
+    "master_node": "master_ip",
+    "workers": [],
+    "num_workers": 0,
+    "mem_gb": 30,
+    "master_url": "http://master_ip:8265/nodes?view=summary"
+}

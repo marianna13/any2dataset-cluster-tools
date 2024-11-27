@@ -1,0 +1,6 @@
+{
+    "id": "ray_audio",
+    "num_nodes": 1,
+    "mem_gb": 30,
+    "setup_script": "scripts/ray_audio.sh"
+}
