@@ -20,7 +20,7 @@ echo "Setup done"
 # mount
 KEY="~/.ssh/mount_key"
 LOCAL_DIR="/home/laion/mount"
-unount $LOCAL_DIR
+umount $LOCAL_DIR
 mkdir -p $LOCAL_DIR
 USER=$MOUNT_USER
 HOST=$MOUNT_HOST
