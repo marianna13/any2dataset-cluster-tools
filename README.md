@@ -72,7 +72,7 @@ Cluster id should be equal to cluster config filename. Master node should be set
 
 4. **Setting the cluster up.** 
 In [manage_cluster.sh](manage_cluster.sh) there's an example of setting up a cluster master node (see setup section).
-Then you need to ssh into your master node and copy all three files in the [master](/master) directory into ypur work directory on the remote machine (`cd /home/cluster/`). 
+Then you need to ssh into your master node and copy all three files in the [master](/master) directory into your work directory on the remote machine (`cd /home/cluster/`). 
 
 5. The last steps are launching the master process (master node will run one worker process as well):
 `bash start_cluster`
