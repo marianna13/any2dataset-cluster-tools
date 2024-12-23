@@ -41,6 +41,11 @@ MOUNT_HOST="hostanme"
 SSH_KEY="ssh key of cluster machines"
 USER="username of cluster machines"
 ```
+
+## Add a mount key
+
+Before proceeding with cluster setup, keys for mounting folders (eg from JUDAC) on remote machines should be created. Please see [this guide](helpers/mount_key_instructions.md). Once keys are in place, proceed with cluster setup.
+
 ## Starting a cluster
 
 The cluster should be starting on the master node. 
