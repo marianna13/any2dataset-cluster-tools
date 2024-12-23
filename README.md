@@ -66,7 +66,7 @@ Steps to start the cluster:
     "master_url": "http://master_ip:8265/nodes?view=summary"
 }
 ```
-Clsuter id should be equal to cluster config filename. Master node should be set to the chosen master IP address and master URL should also be set accordingly.
+Cluster id should be equal to cluster config filename. Master node should be set to the chosen master IP address and master URL should also be set accordingly.
 
 3. Set [environment variables](#environment-variables) accordingly. *Note:* you may need to set the same variables on cluster machines. You can set them by first setting them first on your machine (by modifying in running [this script](scripts/set_env.sh)) and then setting up the cluster and adding more nodes (see below).
 
