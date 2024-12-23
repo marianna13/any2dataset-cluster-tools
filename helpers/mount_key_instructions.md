@@ -1,10 +1,9 @@
 # Adding a new key for mounting remote machines (JUDAC, etc)
 
-1. Create an ssh key :
+1. On your local machine, create an ssh key :
 
 ```bash
 MOUNT_KEY_NAME=YOUR_FAVORITE_KEY_NAME
-REMOTE_MACHINE_KEY=YOUR_REMOTE_MACHINE_KEY
 
 ssh-keygen -a 100 -t ed25519 -f ~/.ssh/$MOUNT_KEY_NAME
 ```
@@ -19,6 +18,7 @@ rsync -v --stats --progress -e ssh  ~/.ssh/$MOUNT_KEY_NAME* user@xx.xxx.xxx.xxx:
 b. Go to any remote machine, eg
 
 ```bash
+REMOTE_MACHINE_KEY=YOUR_REMOTE_MACHINE_KEY
 ssh -i .ssh/$REMOTE_MACHINE_KEY user@xx.xxx.xxx.xxx
 ```
 
